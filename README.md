@@ -16,8 +16,7 @@
 ![](https://github-profile-trophy.vercel.app/?username=c1ph3r-fsocitey&theme=radical&no-frame=false&no-bg=true&margin-w=4)
 
 ### ✍️ Random Dev Quote
-![Quote](https://github-readme-quotes.herokuapp.com/quote)
-
+[![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark)](https://github.com/piyushsuthar/github-readme-quotes)
 ---
 [![](https://visitcount.itsvg.in/api?id=c1ph3r-fsocitey&icon=7&color=12)](https://visitcount.itsvg.in)
 
