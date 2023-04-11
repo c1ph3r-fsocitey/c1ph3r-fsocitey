@@ -1,5 +1,5 @@
 # 💫 About Me:
-🔭 I’m currently working on Python, Robotics and Hacking Projects<br>👯 I’m looking to collaborate on App Development<br>🤝 I’m looking for help with ROS2<br>🌱 I’m currently learning ROS2 and python<br>💬 Ask me about Electronics<br>⚡ Fun fact: I Bench 175
+🔭 I’m currently working on Python, Robotics and Hacking Projects<br>👯 I’m looking to collaborate on App Development<br>🤝 I’m looking for help with ROS and ROS2<br>🌱 I’m currently learning ROS and ROS2 and python<br>💬 Ask me about Electronics<br>⚡ Fun fact: I Bench 175
 
 
 ## 🌐 Socials:
