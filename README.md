@@ -18,4 +18,7 @@
 ### ✍️ Random Dev Quote
 [![Readme Quotes](https://quotes-github-readme.vercel.app/api?type=horizontal&theme=dark)](https://github.com/piyushsuthar/github-readme-quotes)
 ---
-[![](https://visitcount.itsvg.in/api?id=c1ph3r-fsocitey&icon=7&color=12)](https://visitcount.itsvg.in)
+
+<a href="https://visitcount.itsvg.in">
+  <img src="https://visitcount.itsvg.in/api?id=c1ph3r-fsocitey&label=Profile%20Views&pretty=false" />
+</a>
