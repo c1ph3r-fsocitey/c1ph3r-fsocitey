@@ -1,4 +1,4 @@
-<h1 align="center">Hi 👋, I'm C1PH3R-FSocitey</h1>
+<h1 align="center">Hi 👋, I'm C1PH3R-Fsocitey</h1>
 <p align="left"> <img src="https://komarev.com/ghpvc/?username=c1ph3r-fsocitey&label=Profile%20views&color=0e75b6&style=flat" alt="c1ph3r-fsocitey" /> </p>
 
 <p align="left"> <a href="https://github.com/ryo-ma/github-profile-trophy"><img src="https://github-profile-trophy.vercel.app/?username=c1ph3r-fsocitey" alt="c1ph3r-fsocitey" /></a> </p>
