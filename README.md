@@ -27,3 +27,6 @@
   ## 💰 You can help me by Donating
   [![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://bmc.link/thareja) 
 
+## Watch a Snake eat my GitHub Contributions
+![github_snake](https://github.com/c1ph3r-fsocitey/c1ph3r-fsocitey/assets/109020327/782b01da-3440-4ee9-afa3-a2c6b44e3543)
+
