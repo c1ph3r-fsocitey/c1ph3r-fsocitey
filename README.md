@@ -14,8 +14,6 @@
 ![](https://github-readme-streak-stats.herokuapp.com/?user=c1ph3r-fsocitey&theme=vision-friendly-dark&hide_border=false)<br/>
 ![](https://github-readme-stats.vercel.app/api/top-langs/?username=c1ph3r-fsocitey&theme=vision-friendly-dark&hide_border=false&include_all_commits=true&count_private=true&layout=compact)
 
-[![c1ph3r-fsocitey's GitHub | Languages Over Time](https://stats.quine.sh/c1ph3r-fsocitey/languages-over-time?theme=dark)](https://quine.sh?utm_source=widgets&utm_campaign=c1ph3r-fsocitey)
-
 ## 🏆 GitHub Trophies
 ![](https://github-profile-trophy.vercel.app/?username=c1ph3r-fsocitey&theme=dracula&no-frame=false&no-bg=true&margin-w=4)
 
