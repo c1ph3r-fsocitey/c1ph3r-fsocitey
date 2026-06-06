@@ -200,7 +200,7 @@ export default function StorePage() {
                       <Badge variant="warning">Only {product.stock} left</Badge>
                     </div>
                   )}
-                  {product.stock === 0 && (
+                  {(product.stock as number) === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center bg-surface-900/70">
                       <Badge variant="error">Out of Stock</Badge>
                     </div>
