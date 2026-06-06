@@ -3,10 +3,15 @@ import Razorpay from 'razorpay'
 import { createServiceClient } from '@/lib/supabase/server'
 import { usdToInr } from '@/lib/utils/format'
 
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-})
+function getRazorpay() {
+  if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error('Razorpay keys not configured')
+  }
+  return new Razorpay({
+    key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  })
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,6 +53,7 @@ export async function POST(req: NextRequest) {
     const amountInr = usdToInr(finalTotal)
 
     // Create Razorpay order
+    const razorpay = getRazorpay()
     const razorpayOrder = await razorpay.orders.create({
       amount: amountInr * 100,  // paise
       currency: 'INR',
