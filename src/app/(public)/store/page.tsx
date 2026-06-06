@@ -112,7 +112,7 @@ const ALL_PRODUCTS = [
     features: ['Educational', 'Desktop Widget', 'Programmable'],
     legal_disclaimer: null,
   },
-] as const
+]
 
 const CATEGORIES = [
   { value: 'all',         label: 'All' },
