@@ -15,13 +15,13 @@ export default async function AdminDashboard() {
     { count: totalCustomers },
     { count: totalProducts },
     { data: recentOrders },
-    { data: pendingOrders },
+    { count: pendingCount },
   ] = await Promise.all([
     supabase.from('orders').select('*', { count: 'exact', head: true }),
     supabase.from('customers').select('*', { count: 'exact', head: true }),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('orders').select('id, order_number, customer_name, total, status, created_at').order('created_at', { ascending: false }).limit(5),
-    supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'confirmed'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'confirmed'),
   ])
 
   const { data: revenue } = await supabase
@@ -58,11 +58,11 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Alert for pending orders */}
-      {(pendingOrders?.count ?? 0) > 0 && (
+      {(pendingCount ?? 0) > 0 && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-900/20 border border-amber-700/30">
           <AlertCircle className="w-5 h-5 text-amber-400" />
           <p className="text-sm text-amber-300">
-            You have <strong>{pendingOrders?.count}</strong> confirmed order(s) awaiting processing.{' '}
+            You have <strong>{pendingCount}</strong> confirmed order(s) awaiting processing.{' '}
             <Link href="/admin/orders?status=confirmed" className="underline hover:text-amber-200">View orders →</Link>
           </p>
         </div>
