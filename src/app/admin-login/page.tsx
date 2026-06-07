@@ -22,19 +22,6 @@ export default function AdminLoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) { toast.error(error.message); return }
 
-      // Verify admin
-      const { data: adminUser } = await supabase
-        .from('admin_users')
-        .select('role')
-        .eq('email', email)
-        .single()
-
-      if (!adminUser) {
-        await supabase.auth.signOut()
-        toast.error('Access denied')
-        return
-      }
-
       router.push('/admin')
     } catch {
       toast.error('Login failed')

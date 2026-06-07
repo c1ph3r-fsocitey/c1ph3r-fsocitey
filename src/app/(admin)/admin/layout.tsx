@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -8,14 +8,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!user) redirect('/admin-login')
 
-  // Verify admin role
-  const { data: adminUser } = await supabase
+  // Use service client to bypass RLS when checking admin role
+  const serviceClient = createServiceClient()
+  const { data: adminUser } = await serviceClient
     .from('admin_users')
     .select('role')
     .eq('email', user.email)
     .single()
 
-  if (!adminUser) redirect('/admin/login')
+  if (!adminUser) redirect('/admin-login')
 
   return (
     <div className="flex min-h-screen bg-surface-900">
