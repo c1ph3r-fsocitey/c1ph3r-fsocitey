@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Shield, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Input from '@/components/ui/Input'
@@ -9,7 +8,6 @@ import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 
 export default function AdminLoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,7 +20,7 @@ export default function AdminLoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) { toast.error(error.message); return }
 
-      router.push('/admin')
+      window.location.href = '/admin'
     } catch {
       toast.error('Login failed')
     } finally {
