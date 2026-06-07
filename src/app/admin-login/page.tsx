@@ -36,7 +36,6 @@ export default function AdminLoginPage() {
       }
 
       router.push('/admin')
-      // Note: login page moved to /admin-login
     } catch {
       toast.error('Login failed')
     } finally {
