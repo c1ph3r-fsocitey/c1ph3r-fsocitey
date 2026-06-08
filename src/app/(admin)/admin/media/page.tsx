@@ -42,7 +42,7 @@ export default function AdminMediaPage() {
 
   const load = async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('media').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('media_items').select('*').order('created_at', { ascending: false })
     setItems(data ?? [])
     setLoading(false)
   }
@@ -81,7 +81,7 @@ export default function AdminMediaPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
 
-      const { error: dbErr } = await supabase.from('media').insert({
+      const { error: dbErr } = await supabase.from('media_items').insert({
         title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
         url: publicUrl,
         type: 'image',
@@ -116,7 +116,7 @@ export default function AdminMediaPage() {
     if (!urlForm.url || !urlForm.title) return
     setSavingUrl(true)
     const supabase = createClient()
-    const { error } = await supabase.from('media').insert({
+    const { error } = await supabase.from('media_items').insert({
       title: urlForm.title,
       url: urlForm.url,
       type: urlForm.type,
@@ -145,7 +145,7 @@ export default function AdminMediaPage() {
       await supabase.storage.from('media').remove([path])
     }
 
-    await supabase.from('media').delete().eq('id', item.id)
+    await supabase.from('media_items').delete().eq('id', item.id)
     setItems(prev => prev.filter(i => i.id !== item.id))
   }
 
@@ -158,7 +158,7 @@ export default function AdminMediaPage() {
       .filter(i => i.url.startsWith(storageBase))
       .map(i => i.url.replace(storageBase, ''))
     if (storagePaths.length > 0) await supabase.storage.from('media').remove(storagePaths)
-    await supabase.from('media').delete().in('id', selected)
+    await supabase.from('media_items').delete().in('id', selected)
     setItems(prev => prev.filter(i => !selected.includes(i.id)))
     setSelected([])
   }

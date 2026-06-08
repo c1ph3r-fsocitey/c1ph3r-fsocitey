@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Save, Trash2, Plus, X } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Plus, X, Upload, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -31,6 +31,9 @@ export default function ProductEditorPage() {
   const [newTag, setNewTag] = useState('')
   const [newFeature, setNewFeature] = useState('')
   const [newImage, setNewImage] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [dragOverImage, setDragOverImage] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -122,6 +125,35 @@ export default function ProductEditorPage() {
     }
   }
 
+  const uploadProductImages = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (fileArray.length === 0) return
+    setUploadingImage(true)
+    const supabase = createClient()
+    const uploaded: string[] = []
+    for (const file of fileArray) {
+      const ext = file.name.split('.').pop()
+      const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('media').upload(path, file, { contentType: file.type })
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+        uploaded.push(publicUrl)
+      } else {
+        toast.error(`Failed to upload ${file.name}: ${error.message}`)
+      }
+    }
+    if (uploaded.length > 0) {
+      setForm(f => ({ ...f, images: [...f.images, ...uploaded] }))
+    }
+    setUploadingImage(false)
+  }
+
+  const handleImageDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOverImage(false)
+    if (e.dataTransfer.files) uploadProductImages(e.dataTransfer.files)
+  }
+
   if (loading) return <div className="text-slate-500 p-8">Loading...</div>
 
   return (
@@ -193,25 +225,63 @@ export default function ProductEditorPage() {
 
           {/* Images */}
           <div className="glow-card p-6 space-y-3">
-            <h2 className="font-bold text-white">Images</h2>
-            <p className="text-xs text-slate-500">Paste image URLs (from Supabase Storage, Tindie, or any CDN)</p>
+            <h2 className="font-bold text-white">Product Images</h2>
+
+            {/* Current images */}
+            {form.images.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {form.images.map((img, i) => (
+                  <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-surface-700 border border-brand-subtle">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img} alt="" className="w-full h-full object-contain p-1" />
+                    <button
+                      onClick={() => setForm(prev => ({ ...prev, images: prev.images.filter((_, j) => j !== i) }))}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-900/80 text-red-400 hover:bg-red-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="w-3 h-3" />
+                    </button>
+                    {i === 0 && (
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-brand-500/80 text-white px-1 rounded">Main</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Drop zone */}
+            <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { if (e.target.files) uploadProductImages(e.target.files) }} />
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOverImage(true) }}
+              onDragLeave={() => setDragOverImage(false)}
+              onDrop={handleImageDrop}
+              onClick={() => !uploadingImage && imageInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                dragOverImage ? 'border-brand-500 bg-brand-500/10' : 'border-brand-subtle hover:border-brand-500/50 hover:bg-surface-700/40'
+              }`}
+            >
+              {uploadingImage ? (
+                <div className="flex items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Uploading...</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="w-6 h-6 text-slate-500" />
+                  <p className="text-sm text-slate-400">Drop images here or <span className="text-brand-400">click to browse</span></p>
+                  <p className="text-xs text-slate-600">PNG, JPG, WEBP — multiple files supported</p>
+                </div>
+              )}
+            </div>
+
+            {/* URL input fallback */}
             <div className="flex gap-2">
               <input value={newImage} onChange={e => setNewImage(e.target.value)}
-                placeholder="https://..."
+                onKeyDown={e => { if (e.key === 'Enter' && newImage.trim()) { setForm(f => ({ ...f, images: [...f.images, newImage.trim()] })); setNewImage('') }}}
+                placeholder="Or paste image URL directly..."
                 className="flex-1 px-4 py-2 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
               <button onClick={() => { if (newImage.trim()) { setForm(f => ({ ...f, images: [...f.images, newImage.trim()] })); setNewImage('') }}}
-                className="px-3 py-2 rounded-xl bg-brand-500 text-white hover:bg-brand-400 transition-colors">
+                className="px-3 py-2 rounded-xl bg-surface-600 text-slate-300 hover:bg-surface-500 transition-colors">
                 <Plus className="w-4 h-4" />
               </button>
-            </div>
-            <div className="space-y-2">
-              {form.images.map((img, i) => (
-                <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-700 border border-brand-subtle gap-3">
-                  <span className="text-xs text-slate-400 truncate flex-1">{img}</span>
-                  <button onClick={() => setForm(prev => ({ ...prev, images: prev.images.filter((_, j) => j !== i) }))}
-                    className="text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ))}
             </div>
           </div>
 

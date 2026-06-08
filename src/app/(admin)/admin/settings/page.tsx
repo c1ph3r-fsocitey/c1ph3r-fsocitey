@@ -39,7 +39,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('settings').select('*').single()
+      const { data } = await supabase.from('site_settings').select('*').single()
       if (data) setSettings({ ...DEFAULTS, ...data })
       setLoading(false)
     }
