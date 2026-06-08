@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Upload, Trash2, Link2, Image as ImageIcon, Play, Search, Filter } from 'lucide-react'
+import { Upload, Trash2, Link2, Image as ImageIcon, Play, Search, X, Loader2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils/format'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -26,10 +26,19 @@ export default function AdminMediaPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
 
-  // Add URL form
-  const [showAddUrl, setShowAddUrl] = useState(false)
+  // Upload state
+  const [uploadMode, setUploadMode] = useState<'file' | 'url' | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<string[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Upload metadata
+  const [uploadMeta, setUploadMeta] = useState<{ category: MediaCategory; tags: string }>({ category: 'misc', tags: '' })
+
+  // URL form state
   const [urlForm, setUrlForm] = useState({ title: '', url: '', type: 'image' as 'image' | 'video', category: 'misc' as MediaCategory, description: '', tags: '' })
-  const [saving, setSaving] = useState(false)
+  const [savingUrl, setSavingUrl] = useState(false)
 
   const load = async () => {
     const supabase = createClient()
@@ -46,9 +55,66 @@ export default function AdminMediaPage() {
     return matchCat && matchSearch
   })
 
+  // ── File upload ──────────────────────────────────────────────────────────
+  const uploadFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (fileArray.length === 0) return
+
+    setUploading(true)
+    setUploadProgress([])
+    const supabase = createClient()
+    const tags = uploadMeta.tags.split(',').map(t => t.trim()).filter(Boolean)
+
+    for (const file of fileArray) {
+      setUploadProgress(prev => [...prev, `Uploading ${file.name}...`])
+      const ext = file.name.split('.').pop()
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+      const { data: storageData, error: storageErr } = await supabase.storage
+        .from('media')
+        .upload(path, file, { contentType: file.type, upsert: false })
+
+      if (storageErr) {
+        setUploadProgress(prev => [...prev, `❌ ${file.name}: ${storageErr.message}`])
+        continue
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+
+      const { error: dbErr } = await supabase.from('media').insert({
+        title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+        url: publicUrl,
+        type: 'image',
+        category: uploadMeta.category,
+        tags,
+        created_at: new Date().toISOString(),
+      })
+
+      if (dbErr) {
+        setUploadProgress(prev => [...prev, `❌ DB error for ${file.name}: ${dbErr.message}`])
+      } else {
+        setUploadProgress(prev => [...prev.filter(p => p.includes(file.name)), `✓ ${file.name} uploaded`])
+      }
+    }
+
+    setUploading(false)
+    await load()
+  }
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) uploadFiles(e.target.files)
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files) uploadFiles(e.dataTransfer.files)
+  }, [uploadMeta])
+
+  // ── URL add ──────────────────────────────────────────────────────────────
   const handleAddUrl = async () => {
     if (!urlForm.url || !urlForm.title) return
-    setSaving(true)
+    setSavingUrl(true)
     const supabase = createClient()
     const { error } = await supabase.from('media').insert({
       title: urlForm.title,
@@ -59,24 +125,39 @@ export default function AdminMediaPage() {
       tags: urlForm.tags.split(',').map(t => t.trim()).filter(Boolean),
       created_at: new Date().toISOString(),
     })
-    setSaving(false)
+    setSavingUrl(false)
     if (!error) {
       setUrlForm({ title: '', url: '', type: 'image', category: 'misc', description: '', tags: '' })
-      setShowAddUrl(false)
+      setUploadMode(null)
       load()
     }
   }
 
-  const handleDelete = async (id: string) => {
+  // ── Delete ───────────────────────────────────────────────────────────────
+  const handleDelete = async (item: MediaItem) => {
     if (!confirm('Delete this media item?')) return
     const supabase = createClient()
-    await supabase.from('media').delete().eq('id', id)
-    setItems(prev => prev.filter(i => i.id !== id))
+
+    // Try to remove from storage if it's a Supabase storage URL
+    const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/`
+    if (item.url.startsWith(storageBase)) {
+      const path = item.url.replace(storageBase, '')
+      await supabase.storage.from('media').remove([path])
+    }
+
+    await supabase.from('media').delete().eq('id', item.id)
+    setItems(prev => prev.filter(i => i.id !== item.id))
   }
 
   const handleBulkDelete = async () => {
     if (!confirm(`Delete ${selected.length} items?`)) return
     const supabase = createClient()
+    const toDelete = items.filter(i => selected.includes(i.id))
+    const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/`
+    const storagePaths = toDelete
+      .filter(i => i.url.startsWith(storageBase))
+      .map(i => i.url.replace(storageBase, ''))
+    if (storagePaths.length > 0) await supabase.storage.from('media').remove(storagePaths)
     await supabase.from('media').delete().in('id', selected)
     setItems(prev => prev.filter(i => !selected.includes(i.id)))
     setSelected([])
@@ -98,16 +179,86 @@ export default function AdminMediaPage() {
               Delete {selected.length}
             </Button>
           )}
-          <Button size="sm" onClick={() => setShowAddUrl(v => !v)} leftIcon={<Link2 className="w-4 h-4" />}>
+          <Button size="sm" variant={uploadMode === 'url' ? 'secondary' : 'ghost'} onClick={() => setUploadMode(m => m === 'url' ? null : 'url')} leftIcon={<Link2 className="w-4 h-4" />}>
             Add URL
+          </Button>
+          <Button size="sm" onClick={() => setUploadMode(m => m === 'file' ? null : 'file')} leftIcon={<Upload className="w-4 h-4" />}>
+            Upload Files
           </Button>
         </div>
       </div>
 
-      {/* Add URL panel */}
-      {showAddUrl && (
+      {/* Upload panel */}
+      {uploadMode === 'file' && (
         <div className="glow-card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-300">Add Media by URL</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-300">Upload Images</h3>
+            <button onClick={() => setUploadMode(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+          </div>
+
+          {/* Metadata row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Category</label>
+              <select value={uploadMeta.category} onChange={e => setUploadMeta(p => ({...p, category: e.target.value as MediaCategory}))}
+                className="w-full px-3 py-2 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-white focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Tags (comma-separated)</label>
+              <input value={uploadMeta.tags} onChange={e => setUploadMeta(p => ({...p, tags: e.target.value}))}
+                placeholder="tag1, tag2"
+                className="w-full px-3 py-2 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+            </div>
+          </div>
+
+          {/* Drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+              dragOver ? 'border-brand-500 bg-brand-500/10' : 'border-brand-subtle hover:border-brand-500/50 hover:bg-surface-700/50'
+            }`}
+          >
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileInput} />
+            {uploading ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+                <p className="text-sm text-slate-400">Uploading...</p>
+                <div className="text-xs text-slate-500 space-y-1">
+                  {uploadProgress.map((p, i) => <p key={i}>{p}</p>)}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <Upload className="w-8 h-8 text-slate-500" />
+                <div>
+                  <p className="text-sm font-medium text-slate-300">Drop images here or click to browse</p>
+                  <p className="text-xs text-slate-500 mt-1">PNG, JPG, WEBP, GIF — multiple files supported</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Progress log after upload */}
+          {!uploading && uploadProgress.length > 0 && (
+            <div className="text-xs text-slate-500 space-y-1 bg-surface-700 rounded-lg p-3">
+              {uploadProgress.map((p, i) => <p key={i}>{p}</p>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add URL panel */}
+      {uploadMode === 'url' && (
+        <div className="glow-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-300">Add Media by URL</h3>
+            <button onClick={() => setUploadMode(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Title</label>
@@ -137,7 +288,7 @@ export default function AdminMediaPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Tags (comma-separated)</label>
+              <label className="block text-xs text-slate-400 mb-1.5">Tags</label>
               <input value={urlForm.tags} onChange={e => setUrlForm(p => ({...p, tags: e.target.value}))}
                 placeholder="tag1, tag2"
                 className="w-full px-3 py-2 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
@@ -145,14 +296,14 @@ export default function AdminMediaPage() {
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Description</label>
               <input value={urlForm.description} onChange={e => setUrlForm(p => ({...p, description: e.target.value}))}
-                placeholder="Optional description"
+                placeholder="Optional"
                 className="w-full px-3 py-2 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" size="sm" onClick={() => setShowAddUrl(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleAddUrl} disabled={saving || !urlForm.url || !urlForm.title}>
-              {saving ? 'Adding...' : 'Add Item'}
+            <Button variant="ghost" size="sm" onClick={() => setUploadMode(null)}>Cancel</Button>
+            <Button size="sm" onClick={handleAddUrl} disabled={savingUrl || !urlForm.url || !urlForm.title}>
+              {savingUrl ? 'Adding...' : 'Add Item'}
             </Button>
           </div>
         </div>
@@ -165,20 +316,21 @@ export default function AdminMediaPage() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search media..."
             className="pl-9 pr-4 py-2 rounded-xl text-sm bg-surface-800 border border-brand-subtle text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 w-48" />
         </div>
-        <div className="flex items-center gap-1 bg-surface-800 border border-brand-subtle rounded-xl p-1">
-          <button onClick={() => setFilter('all')} className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-all ${filter === 'all' ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30' : 'text-slate-500 hover:text-slate-300'}`}>All</button>
+        <div className="flex items-center gap-1 bg-surface-800 border border-brand-subtle rounded-xl p-1 flex-wrap">
+          <button onClick={() => setFilter('all')} className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filter === 'all' ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30' : 'text-slate-500 hover:text-slate-300'}`}>All</button>
           {CATEGORIES.map(cat => (
             <button key={cat} onClick={() => setFilter(cat)} className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-all ${filter === cat ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30' : 'text-slate-500 hover:text-slate-300'}`}>{cat}</button>
           ))}
         </div>
       </div>
 
+      {/* Grid */}
       {loading ? (
         <div className="text-slate-500 text-sm">Loading media...</div>
       ) : filtered.length === 0 ? (
         <div className="glow-card p-12 text-center">
           <ImageIcon className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-500">No media items yet. Add images or YouTube videos above.</p>
+          <p className="text-slate-500">No media yet. Upload images or add by URL above.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -196,10 +348,10 @@ export default function AdminMediaPage() {
                       <span className="text-xs text-slate-400">YouTube</span>
                     </div>
                   ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                   )}
 
-                  {/* Selection overlay */}
                   {isSelected && (
                     <div className="absolute inset-0 bg-brand-500/20 flex items-center justify-center">
                       <div className="w-6 h-6 rounded-full bg-brand-500 border-2 border-white flex items-center justify-center">
@@ -208,9 +360,8 @@ export default function AdminMediaPage() {
                     </div>
                   )}
 
-                  {/* Hover actions */}
                   <div className="absolute inset-0 bg-surface-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2">
-                    <button onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
+                    <button onClick={e => { e.stopPropagation(); handleDelete(item) }}
                       className="p-1.5 rounded-lg bg-red-900/80 text-red-400 hover:bg-red-800 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
