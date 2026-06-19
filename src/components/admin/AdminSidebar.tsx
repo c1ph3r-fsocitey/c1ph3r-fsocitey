@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Shield, LayoutDashboard, Package, ShoppingCart, Users,
   FileText, Image, Mic, Settings, BarChart3, LogOut,
-  Menu, X, ChevronRight, FlaskConical
+  Menu, X, ChevronRight, FlaskConical, UserCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/products',  label: 'Products',    icon: Package },
   { href: '/admin/orders',    label: 'Orders',      icon: ShoppingCart },
   { href: '/admin/customers', label: 'Customers',   icon: Users },
+  { href: '/admin/about',     label: 'About Page',  icon: UserCircle },
   { href: '/admin/blog',      label: 'Blog',        icon: FileText },
   { href: '/admin/research',  label: 'Research',    icon: FlaskConical },
   { href: '/admin/media',     label: 'Media',       icon: Image },
