@@ -87,8 +87,16 @@ export default async function SpeakingPage() {
               {allEvents.map(event => {
                 const typeCfg = TYPE_CONFIG[event.event_type] ?? { variant: 'info' as const }
                 return (
-                  <div key={event.id} className="glow-card p-7">
-                    <div className="flex flex-col md:flex-row gap-6">
+                  <div key={event.id} className="glow-card overflow-hidden">
+                    {event.cover_image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={event.cover_image}
+                        alt={event.title}
+                        className="w-full h-48 object-cover"
+                      />
+                    )}
+                    <div className="p-7 flex flex-col md:flex-row gap-6">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <Badge variant={typeCfg.variant}>{event.event_type}</Badge>
