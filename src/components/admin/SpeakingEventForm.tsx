@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Upload, X, Loader2, Link2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import type { SpeakingEvent } from '@/types'
 
@@ -33,6 +33,10 @@ export default function SpeakingEventForm({ initialData }: Props) {
   const [tagsInput, setTagsInput] = useState(initialData?.tags?.join(', ') ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [urlMode, setUrlMode] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isEdit = !!initialData
   const set = (key: keyof SpeakingEvent, value: unknown) =>
@@ -63,6 +67,36 @@ export default function SpeakingEventForm({ initialData }: Props) {
     const supabase = createClient()
     await supabase.from('speaking_events').delete().eq('id', initialData.id)
     router.push('/admin/speaking')
+  }
+
+  const uploadImage = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    setUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const path = `speaking/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: storageErr } = await supabase.storage
+      .from('media')
+      .upload(path, file, { contentType: file.type, upsert: false })
+    if (storageErr) {
+      setError(storageErr.message)
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+      set('cover_image', publicUrl)
+    }
+    setUploading(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) uploadImage(file)
+  }, [uploadImage])
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) uploadImage(file)
   }
 
   return (
@@ -126,9 +160,90 @@ export default function SpeakingEventForm({ initialData }: Props) {
               <input value={form.slides_url ?? ''} onChange={e => set('slides_url', e.target.value)}
                 placeholder="https://..." className={INPUT} />
             </Field>
-            <Field label="Cover Image URL">
-              <input value={form.cover_image ?? ''} onChange={e => set('cover_image', e.target.value)}
-                placeholder="https://..." className={INPUT} />
+            <Field label="Cover Image">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileInput}
+              />
+
+              {/* Preview */}
+              {form.cover_image ? (
+                <div className="relative rounded-xl overflow-hidden border border-brand-subtle group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.cover_image}
+                    alt="Cover"
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-surface-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg bg-brand-500/80 text-white text-xs font-medium hover:bg-brand-500 transition-colors"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set('cover_image', '')}
+                      className="p-1.5 rounded-lg bg-red-900/80 text-red-400 hover:bg-red-800 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Drop zone */
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => !uploading && !urlMode && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                    dragOver
+                      ? 'border-brand-500 bg-brand-500/10'
+                      : 'border-brand-subtle hover:border-brand-500/50 hover:bg-surface-700/50 cursor-pointer'
+                  }`}
+                >
+                  {uploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-6 h-6 text-brand-400 animate-spin" />
+                      <p className="text-xs text-slate-400">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="w-6 h-6 text-slate-500" />
+                      <p className="text-xs text-slate-400">
+                        Drop an image here or <span className="text-brand-400">click to browse</span>
+                      </p>
+                      <p className="text-[10px] text-slate-600">PNG, JPG, WEBP supported</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* URL fallback toggle */}
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setUrlMode(m => !m)}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  <Link2 className="w-3 h-3" />
+                  {urlMode ? 'Hide URL input' : 'Or enter image URL instead'}
+                </button>
+                {urlMode && (
+                  <input
+                    value={form.cover_image ?? ''}
+                    onChange={e => set('cover_image', e.target.value)}
+                    placeholder="https://..."
+                    className={INPUT + ' mt-2'}
+                  />
+                )}
+              </div>
             </Field>
           </div>
         </div>
