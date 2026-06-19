@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Shield, Instagram, Github, ExternalLink } from 'lucide-react'
+import { Shield, Instagram, Github } from 'lucide-react'
 
 const FOOTER_LINKS = {
   Company: [
@@ -78,13 +78,19 @@ export default function Footer() {
                 <Github className="w-4 h-4" />
               </a>
               <a
-                href="https://www.tindie.com/stores/c1ph3r_fsocitey/"
+                href="https://www.tindie.com/stores/c1ph3r_fsocitey/?ref=offsite_badges&utm_source=sellers_C1PH3R_FSOCITEY&utm_medium=badges&utm_campaign=badge_large"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-700 border border-brand-subtle text-xs text-slate-400 hover:text-brand-400 hover:border-brand-medium transition-all"
+                aria-label="I sell on Tindie"
               >
-                <ExternalLink className="w-3 h-3" />
-                Tindie Store
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://static.tindie.com/badges/tindie-larges.png"
+                  alt="I sell on Tindie"
+                  width={200}
+                  height={104}
+                  className="hover:opacity-90 transition-opacity"
+                />
               </a>
             </div>
           </div>
