@@ -1,11 +1,17 @@
-const STATS = [
-  { value: '9+',   label: 'Hardware Products',    sub: 'Designed from scratch' },
-  { value: '63+',  label: 'Orders Shipped',        sub: 'Since Jun 2025' },
-  { value: '5.0',  label: 'Average Rating',        sub: '4 verified reviews' },
-  { value: '100%', label: 'Open-Source Firmware',  sub: 'Arduino / PlatformIO' },
-]
+interface AboutData {
+  stat_products?: string
+  stat_orders?: string
+  stat_rating?: string
+}
 
-export default function StatsSection() {
+export default function StatsSection({ about }: { about: AboutData | null }) {
+  const STATS = [
+    { value: about?.stat_products ?? '9+',  label: 'Hardware Products',   sub: 'Designed from scratch' },
+    { value: about?.stat_orders   ?? '63+', label: 'Orders Shipped',       sub: 'Since Jun 2025' },
+    { value: about?.stat_rating   ?? '5.0', label: 'Average Rating',       sub: 'Verified reviews' },
+    { value: '100%',                         label: 'Open-Source Firmware', sub: 'Arduino / PlatformIO' },
+  ]
+
   return (
     <section className="border-y border-brand-subtle bg-surface-800/40">
       <div className="section-container py-12">

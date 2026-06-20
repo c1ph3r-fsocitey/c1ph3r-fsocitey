@@ -1,40 +1,8 @@
 import Link from 'next/link'
-import { ArrowRight, Radio, Wifi, Bluetooth, FlaskConical } from 'lucide-react'
+import { ArrowRight, Radio, Wifi, Bluetooth, FlaskConical, Cpu, BookOpen, Layers } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-
-const RESEARCH = [
-  {
-    icon: <Bluetooth className="w-6 h-6" />,
-    category: 'BLE Security',
-    title: 'BLE Attack Surface Analysis',
-    summary:
-      'Comprehensive analysis of BLE vulnerabilities: MITM, jamming, spoofing, and Sour Apple exploitation across consumer IoT devices.',
-    tags: ['BLE', 'ESP32', 'IoT'],
-    status: 'published',
-    slug: 'ble-attack-surface',
-  },
-  {
-    icon: <Wifi className="w-6 h-6" />,
-    category: 'WiFi Security',
-    title: '5GHz Deauthentication Research',
-    summary:
-      'Investigating 5GHz Wi-Fi deauthentication vulnerabilities — what enterprise networks get wrong, and how to test for compliance.',
-    tags: ['WiFi 5GHz', 'Deauth', 'Enterprise'],
-    status: 'ongoing',
-    slug: '5ghz-deauth-research',
-  },
-  {
-    icon: <Radio className="w-6 h-6" />,
-    category: 'RF Research',
-    title: 'ISM Band Signal Replay Attacks',
-    summary:
-      'Cataloguing replay attack vectors in 315/433MHz ISM band devices: garage doors, sensors, and legacy access control systems.',
-    tags: ['RF', '433MHz', 'Replay'],
-    status: 'published',
-    slug: 'ism-band-replay',
-  },
-]
+import type { ResearchProject } from '@/types'
 
 const STATUS_BADGE: Record<string, { variant: 'cyan' | 'warning' | 'success'; label: string }> = {
   published: { variant: 'success', label: 'Published' },
@@ -42,7 +10,16 @@ const STATUS_BADGE: Record<string, { variant: 'cyan' | 'warning' | 'success'; la
   completed: { variant: 'cyan',    label: 'Completed' },
 }
 
-export default function ResearchHighlights() {
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  'ble-security':     <Bluetooth className="w-6 h-6" />,
+  'wifi-security':    <Wifi className="w-6 h-6" />,
+  'rf-research':      <Radio className="w-6 h-6" />,
+  'embedded-systems': <Cpu className="w-6 h-6" />,
+  'robotics':         <Layers className="w-6 h-6" />,
+  'educational':      <BookOpen className="w-6 h-6" />,
+}
+
+export default function ResearchHighlights({ projects }: { projects: ResearchProject[] }) {
   return (
     <section className="section-padding bg-surface-800/30 bg-grid">
       <div className="section-container">
@@ -65,37 +42,41 @@ export default function ResearchHighlights() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {RESEARCH.map(r => {
-            const s = STATUS_BADGE[r.status]
-            return (
-              <Link key={r.slug} href={`/research/${r.slug}`} className="group">
-                <div className="glow-card h-full p-6 flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-brand-500/15 border border-brand-500/25 flex items-center justify-center text-brand-400">
-                      {r.icon}
+        {projects.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">
+            <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p>Research projects coming soon.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {projects.map(project => {
+              const statusCfg = STATUS_BADGE[project.status] ?? { variant: 'info' as const, label: project.status }
+              const icon = CATEGORY_ICONS[project.category] ?? <FlaskConical className="w-6 h-6" />
+              return (
+                <div key={project.slug} className="glow-card p-6 flex flex-col">
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="w-11 h-11 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center text-brand-400">
+                      {icon}
                     </div>
-                    <Badge variant={s.variant}>{s.label}</Badge>
+                    <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
                   </div>
-
-                  <span className="section-eyebrow text-xs mb-2">{r.category}</span>
-                  <h3 className="font-bold text-white mb-3 group-hover:text-brand-400 transition-colors">
-                    {r.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 leading-relaxed flex-1 mb-4">
-                    {r.summary}
-                  </p>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {r.tags.map(tag => (
+                  <span className="section-eyebrow text-xs mb-2">{project.category.replace(/-/g, ' ')}</span>
+                  <h3 className="font-bold text-white mb-2 leading-snug">{project.title}</h3>
+                  <p className="text-sm text-slate-400 leading-relaxed flex-1 mb-4">{project.summary}</p>
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {project.tags?.slice(0, 3).map(tag => (
                       <span key={tag} className="tech-badge">{tag}</span>
                     ))}
                   </div>
+                  <Link href={`/research/${project.slug}`}
+                    className="text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors">
+                    Read More →
+                  </Link>
                 </div>
-              </Link>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </section>
   )
