@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Menu, X, Shield, ChevronDown } from 'lucide-react'
+import { ShoppingCart, Menu, X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useCartStore } from '@/context/cartStore'
 
@@ -46,9 +46,8 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/20 border border-brand-500/40 flex items-center justify-center group-hover:bg-brand-500/30 transition-colors">
-              <Shield className="w-4 h-4 text-brand-400" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="C1ph3r Fsociety" className="w-8 h-8 rounded-lg object-cover" />
             <div className="flex flex-col leading-none">
               <span className="font-bold text-white text-sm tracking-tight">C1PH3R</span>
               <span className="text-brand-400 text-xs font-medium tracking-widest uppercase">Fsociety</span>

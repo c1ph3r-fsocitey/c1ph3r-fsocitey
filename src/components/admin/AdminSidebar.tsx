@@ -4,9 +4,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Shield, LayoutDashboard, Package, ShoppingCart, Users,
+  LayoutDashboard, Package, ShoppingCart, Users,
   FileText, Image, Mic, Settings, BarChart3, LogOut,
-  Menu, X, ChevronRight, FlaskConical, UserCircle
+  Menu, X, ChevronRight, FlaskConical, UserCircle, Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
@@ -42,9 +42,8 @@ export default function AdminSidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-brand-subtle">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-brand-500/20 border border-brand-500/40 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-brand-400" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="C1ph3r Fsociety" className="w-8 h-8 rounded-lg object-cover" />
           <div>
             <div className="font-bold text-white text-sm">C1PH3R</div>
             <div className="text-brand-400 text-xs">Admin Panel</div>

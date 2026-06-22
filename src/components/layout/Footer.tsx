@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Shield, Instagram, Github } from 'lucide-react'
+import { Instagram, Github } from 'lucide-react'
 
 const FOOTER_LINKS = {
   Company: [
@@ -43,9 +43,8 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-2 flex flex-col gap-5">
             <Link href="/" className="flex items-center gap-2.5 w-fit">
-              <div className="w-9 h-9 rounded-lg bg-brand-500/20 border border-brand-500/40 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-brand-400" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="C1ph3r Fsociety" className="w-9 h-9 rounded-lg object-cover" />
               <div>
                 <div className="font-bold text-white text-base tracking-tight">C1PH3R FSOCIETY</div>
                 <div className="text-brand-400 text-xs tracking-widest uppercase">Hardware Research</div>
