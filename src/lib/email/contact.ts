@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 const ADMIN_EMAIL = process.env.EMAIL_ADMIN ?? 'rahulthegreat2001@gmail.com'
 const FROM        = process.env.EMAIL_FROM  ?? 'C1ph3r Fsociety <noreply@c1ph3rfsocitey.com>'
 
@@ -12,6 +10,11 @@ export async function sendContactNotification(data: {
   subject: string
   message: string
 }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping email notification.')
+    return
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     // Notification to you
     await resend.emails.send({
