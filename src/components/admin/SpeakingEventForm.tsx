@@ -72,17 +72,16 @@ export default function SpeakingEventForm({ initialData }: Props) {
   const uploadImage = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) return
     setUploading(true)
-    const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `speaking/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error: storageErr } = await supabase.storage
-      .from('media')
-      .upload(path, file, { contentType: file.type, upsert: false })
-    if (storageErr) {
-      setError(storageErr.message)
-    } else {
-      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
-      set('cover_image', publicUrl)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'speaking')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (!res.ok) setError(`Upload failed: ${json.error}`)
+      else set('cover_image', json.url)
+    } catch {
+      setError('Upload failed: network error.')
     }
     setUploading(false)
   }, [])

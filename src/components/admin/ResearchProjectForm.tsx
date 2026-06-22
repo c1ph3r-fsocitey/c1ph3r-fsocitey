@@ -105,19 +105,17 @@ export default function ResearchProjectForm({ initialData }: Props) {
     const images = files.filter(f => f.type.startsWith('image/'))
     if (!images.length) return
     setUploading(true)
-    const supabase = createClient()
     const uploaded: string[] = []
 
     for (const file of images) {
-      const ext = file.name.split('.').pop()
-      const path = `research/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: storageErr } = await supabase.storage
-        .from('media')
-        .upload(path, file, { contentType: file.type, upsert: false })
-      if (!storageErr) {
-        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
-        uploaded.push(publicUrl)
-      }
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('folder', 'research')
+        const res = await fetch('/api/upload', { method: 'POST', body: formData })
+        const json = await res.json()
+        if (res.ok) uploaded.push(json.url)
+      } catch {}
     }
 
     set('images', [...(form.images ?? []), ...uploaded])

@@ -137,19 +137,20 @@ export default function AdminAboutPage() {
     }
     setError('')
     setUploading(true)
-    const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `about/profile-${Date.now()}.${ext}`
-    const { error: storageErr } = await supabase.storage
-      .from('media')
-      .upload(path, file, { contentType: file.type, upsert: true })
-    if (storageErr) {
-      setError(`Upload failed: ${storageErr.message}`)
-      setUploading(false)
-      return
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'about')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(`Upload failed: ${json.error}`)
+      } else {
+        setData(prev => ({ ...prev, photo_url: json.url }))
+      }
+    } catch (e) {
+      setError('Upload failed: network error.')
     }
-    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
-    setData(prev => ({ ...prev, photo_url: publicUrl }))
     setUploading(false)
   }
 
