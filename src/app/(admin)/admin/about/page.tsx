@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Plus, Trash2, Upload, X, Loader2, Link2, GripVertical } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -130,28 +130,35 @@ export default function AdminAboutPage() {
     set('timeline', data.timeline.filter((_, idx) => idx !== i))
 
   // ── Photo upload ──────────────────────────────────────────────────────────
-  const uploadPhoto = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) return
+  const uploadPhoto = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (PNG, JPG, WEBP).')
+      return
+    }
+    setError('')
     setUploading(true)
     const supabase = createClient()
     const ext = file.name.split('.').pop()
     const path = `about/profile-${Date.now()}.${ext}`
-    const { error: err } = await supabase.storage
+    const { error: storageErr } = await supabase.storage
       .from('media')
       .upload(path, file, { contentType: file.type, upsert: true })
-    if (!err) {
-      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
-      set('photo_url', publicUrl)
+    if (storageErr) {
+      setError(`Upload failed: ${storageErr.message}`)
+      setUploading(false)
+      return
     }
+    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+    setData(prev => ({ ...prev, photo_url: publicUrl }))
     setUploading(false)
-  }, [])
+  }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) uploadPhoto(file)
-  }, [uploadPhoto])
+  }
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
