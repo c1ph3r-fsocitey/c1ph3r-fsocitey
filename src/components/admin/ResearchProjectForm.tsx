@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Save, Trash2, Upload, X, Loader2, Link2, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { uploadFile } from '@/lib/utils/upload'
 import type { ResearchProject, ResearchCategory } from '@/types'
 
 const CATEGORIES: { value: ResearchCategory; label: string }[] = [
@@ -106,18 +107,12 @@ export default function ResearchProjectForm({ initialData }: Props) {
     if (!images.length) return
     setUploading(true)
     const uploaded: string[] = []
-
     for (const file of images) {
       try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('folder', 'research')
-        const res = await fetch('/api/upload', { method: 'POST', body: formData })
-        const json = await res.json()
-        if (res.ok) uploaded.push(json.url)
+        const url = await uploadFile(file, 'research')
+        uploaded.push(url)
       } catch {}
     }
-
     set('images', [...(form.images ?? []), ...uploaded])
     setUploading(false)
   }, [form.images])

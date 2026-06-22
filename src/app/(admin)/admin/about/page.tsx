@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/utils/upload'
 import { Save, Plus, Trash2, Upload, X, Loader2, Link2, GripVertical } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
@@ -138,18 +139,10 @@ export default function AdminAboutPage() {
     setError('')
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('folder', 'about')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const json = await res.json()
-      if (!res.ok) {
-        setError(`Upload failed: ${json.error}`)
-      } else {
-        setData(prev => ({ ...prev, photo_url: json.url }))
-      }
-    } catch (e) {
-      setError('Upload failed: network error.')
+      const url = await uploadFile(file, 'about')
+      setData(prev => ({ ...prev, photo_url: url }))
+    } catch (e: any) {
+      setError(`Upload failed: ${e.message}`)
     }
     setUploading(false)
   }

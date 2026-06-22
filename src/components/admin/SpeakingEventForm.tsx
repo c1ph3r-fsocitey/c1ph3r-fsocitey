@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Save, Trash2, Upload, X, Loader2, Link2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { uploadFile } from '@/lib/utils/upload'
 import type { SpeakingEvent } from '@/types'
 
 interface Props {
@@ -73,15 +74,10 @@ export default function SpeakingEventForm({ initialData }: Props) {
     if (!file.type.startsWith('image/')) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('folder', 'speaking')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const json = await res.json()
-      if (!res.ok) setError(`Upload failed: ${json.error}`)
-      else set('cover_image', json.url)
-    } catch {
-      setError('Upload failed: network error.')
+      const url = await uploadFile(file, 'speaking')
+      set('cover_image', url)
+    } catch (e: any) {
+      setError(`Upload failed: ${e.message}`)
     }
     setUploading(false)
   }, [])
