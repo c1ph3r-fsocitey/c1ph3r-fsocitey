@@ -60,14 +60,22 @@ async function fetchAllOrders(username: string, apiKey: string): Promise<TindieO
   let offset = 0
   const limit = 100
 
+  // Basic Auth: base64(username:api_key)
+  const credentials = Buffer.from(`${username}:${apiKey}`).toString('base64')
+
   while (true) {
-    const url = `${TINDIE_BASE}?format=json&username=${encodeURIComponent(username)}&api_key=${encodeURIComponent(apiKey)}&limit=${limit}&offset=${offset}`
-    console.log('[tindie] fetching:', TINDIE_BASE, '| username:', username, '| key ends:', apiKey.slice(-6))
-    const res = await fetch(url, { cache: 'no-store' }) // no-store so we always get fresh data
+    // Include credentials BOTH as query params and as Basic Auth header
+    // to maximise compatibility with Tindie's API
+    const url = `${TINDIE_BASE}?format=json&limit=${limit}&offset=${offset}`
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+      },
+    })
 
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      console.error('[tindie] error response body:', body)
       throw new Error(
         `Tindie API error: ${res.status} ${res.statusText}${body ? ' — ' + body.slice(0, 300) : ''}`
       )
