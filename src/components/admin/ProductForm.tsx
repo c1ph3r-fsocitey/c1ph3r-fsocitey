@@ -41,6 +41,7 @@ export default function ProductForm({ product, isNew = false }: ProductFormProps
     weight_grams:      product?.weight_grams      ?? '',
     category:          product?.category          ?? 'ble-tools',
     legal_disclaimer:  product?.legal_disclaimer  ?? '',
+    tindie_url:        product?.tindie_url        ?? '',
     is_active:         product?.is_active         ?? true,
     is_featured:       product?.is_featured       ?? false,
   })
@@ -76,6 +77,7 @@ export default function ProductForm({ product, isNew = false }: ProductFormProps
         compare_at_price:form.compare_at_price? parseFloat(form.compare_at_price): null,
         stock:           parseInt(form.stock),
         weight_grams:    form.weight_grams    ? parseInt(form.weight_grams)     : null,
+        tindie_url:      form.tindie_url.trim() || null,
         tags,
         features,
         images,
@@ -170,6 +172,13 @@ export default function ProductForm({ product, isNew = false }: ProductFormProps
             placeholder="For authorized testing only..."
             className="w-full px-4 py-3 rounded-xl text-sm bg-surface-700 border border-brand-subtle text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/60 resize-none" />
         </div>
+        <Input
+          label="Tindie Product URL"
+          value={form.tindie_url}
+          onChange={update('tindie_url')}
+          placeholder="https://www.tindie.com/products/c1ph3r_fsocitey/your-product/"
+          helpText="Customers will be sent here to purchase. Leave blank to link to your store page."
+        />
       </div>
 
       {/* Pricing & Inventory */}

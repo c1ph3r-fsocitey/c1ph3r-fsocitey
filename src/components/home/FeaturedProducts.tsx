@@ -4,7 +4,7 @@ import { ArrowRight, ShoppingCart } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/format'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import AddToCartButton from '@/components/store/AddToCartButton'
+import BuyOnTindieButton from '@/components/store/BuyOnTindieButton'
 import type { Product } from '@/types'
 
 const CATEGORY_COLORS: Record<string, 'cyan' | 'purple' | 'info' | 'success'> = {
@@ -30,11 +30,11 @@ export default function FeaturedProducts({ products }: { products: Product[] }) 
               ESP32-based, ready for authorized security research.
             </p>
           </div>
-          <Link href="/store">
+          <a href="https://www.tindie.com/stores/c1ph3r_fsocitey/" target="_blank" rel="noopener noreferrer">
             <Button variant="secondary" rightIcon={<ArrowRight className="w-4 h-4" />}>
               View All Products
             </Button>
-          </Link>
+          </a>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,7 +95,7 @@ export default function FeaturedProducts({ products }: { products: Product[] }) 
                     <span className="text-2xl font-bold text-white">{formatPrice(product.price)}</span>
                     <span className="text-xs text-slate-500 ml-1.5">+ free shipping</span>
                   </div>
-                  <AddToCartButton product={product} />
+                  <BuyOnTindieButton tindieUrl={product.tindie_url} />
                 </div>
               </div>
             </div>
@@ -103,11 +103,11 @@ export default function FeaturedProducts({ products }: { products: Product[] }) 
         </div>
 
         <div className="text-center mt-12">
-          <Link href="/store">
+          <a href="https://www.tindie.com/stores/c1ph3r_fsocitey/" target="_blank" rel="noopener noreferrer">
             <Button size="lg" rightIcon={<ShoppingCart className="w-5 h-5" />}>
-              Shop All Products
+              Shop All on Tindie
             </Button>
-          </Link>
+          </a>
         </div>
       </div>
     </section>

@@ -22,6 +22,7 @@ export interface Product {
   specs?: Record<string, string>
   features?: string[]
   legal_disclaimer?: string
+  tindie_url?: string
   is_active: boolean
   is_featured: boolean
   created_at: string

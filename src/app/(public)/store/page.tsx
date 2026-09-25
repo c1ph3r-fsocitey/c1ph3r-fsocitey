@@ -1,12 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Badge from '@/components/ui/Badge'
-import AddToCartButton from '@/components/store/AddToCartButton'
+import BuyOnTindieButton from '@/components/store/BuyOnTindieButton'
 import { formatPrice } from '@/lib/utils/format'
 import type { Product } from '@/types'
 
 export const dynamic = 'force-dynamic'
+
+const TINDIE_STORE = 'https://www.tindie.com/stores/c1ph3r_fsocitey/'
 
 export const metadata: Metadata = {
   title: 'Hardware Store',
@@ -50,10 +53,21 @@ export default async function StorePage() {
             Tools Built for{' '}
             <span className="gradient-text">Security Professionals</span>
           </h1>
-          <p className="text-slate-400 text-lg mb-8">
+          <p className="text-slate-400 text-lg mb-6">
             All hardware is designed, assembled, and shipped from Delhi, India.
-            Open-source firmware. Free worldwide shipping.
+            Open-source firmware. Sold worldwide via Tindie.
           </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+            <a
+              href={TINDIE_STORE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-500 text-white font-semibold hover:bg-brand-400 transition-colors shadow-glow"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Browse All on Tindie
+            </a>
+          </div>
           <div className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-900/20 border border-amber-700/30 text-sm text-amber-400/80">
             ⚠️ For authorized ethical hacking &amp; security research only. Buyers must be 18+.
           </div>
@@ -63,7 +77,7 @@ export default async function StorePage() {
       {/* Products */}
       <section className="section-padding">
         <div className="section-container">
-          {/* Category filter row — static display; active filtering requires client state */}
+          {/* Category filter row */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-10">
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map(cat => (
@@ -84,13 +98,17 @@ export default async function StorePage() {
 
           {allProducts.length === 0 ? (
             <div className="text-center py-20 text-slate-500">
-              No products available right now. Check back soon.
+              No products listed yet.{' '}
+              <a href={TINDIE_STORE} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
+                Check the Tindie store
+              </a>{' '}
+              for the latest.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {allProducts.map(product => (
                 <div key={product.id} className="glow-card group flex flex-col">
-                  {/* Image */}
+                  {/* Image — links to detail page (showcase) */}
                   <Link href={`/store/${product.slug}`} className="block overflow-hidden bg-surface-700 aspect-[4/3] relative">
                     {product.images?.[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -144,11 +162,27 @@ export default async function StorePage() {
                         )}
                         <span className="text-xs text-slate-500 ml-1">free ship</span>
                       </div>
-                      <AddToCartButton product={product} />
+                      <BuyOnTindieButton tindieUrl={product.tindie_url} />
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Bottom CTA */}
+          {allProducts.length > 0 && (
+            <div className="text-center mt-14">
+              <p className="text-slate-500 text-sm mb-4">All purchases are handled securely through Tindie.</p>
+              <a
+                href={TINDIE_STORE}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-700 border border-brand-subtle text-slate-300 font-medium hover:text-white hover:border-brand-500/50 transition-all"
+              >
+                <ExternalLink className="w-4 h-4" />
+                View Full Store on Tindie
+              </a>
             </div>
           )}
         </div>

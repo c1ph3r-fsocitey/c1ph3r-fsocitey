@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Menu, X, ChevronDown } from 'lucide-react'
+import { ExternalLink, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { useCartStore } from '@/context/cartStore'
+
+const TINDIE_STORE = 'https://www.tindie.com/stores/c1ph3r_fsocitey/'
 
 const NAV_LINKS = [
   { href: '/about',    label: 'About' },
@@ -20,7 +21,6 @@ export default function Navbar() {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const cartCount = useCartStore(s => s.items.reduce((sum, i) => sum + i.quantity, 0))
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
@@ -74,29 +74,29 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
-            {/* Store link */}
+            {/* Store link → /store showcase page */}
             <Link
               href="/store"
               className={cn(
                 'hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-                'bg-brand-500 text-white hover:bg-brand-400 shadow-glow'
+                pathname?.startsWith('/store')
+                  ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-surface-700'
               )}
             >
-              Shop
+              Store
             </Link>
 
-            {/* Cart */}
-            <Link
-              href="/store/cart"
-              className="relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-surface-700 transition-colors"
+            {/* Buy on Tindie CTA */}
+            <a
+              href={TINDIE_STORE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-brand-500 text-white hover:bg-brand-400 shadow-glow transition-all"
             >
-              <ShoppingCart className="w-5 h-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-brand-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                  {cartCount > 9 ? '9+' : cartCount}
-                </span>
-              )}
-            </Link>
+              <ExternalLink className="w-3.5 h-3.5" />
+              Buy on Tindie
+            </a>
 
             {/* Mobile menu toggle */}
             <button
@@ -114,12 +114,25 @@ export default function Navbar() {
       {isMobileOpen && (
         <div className="md:hidden bg-surface-900/98 backdrop-blur-md border-t border-brand-subtle">
           <div className="section-container py-4 flex flex-col gap-1">
-            <Link
-              href="/store"
+            <a
+              href={TINDIE_STORE}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-brand-500 text-white mb-2"
             >
-              <ShoppingCart className="w-4 h-4" />
-              Shop
+              <ExternalLink className="w-4 h-4" />
+              Buy on Tindie
+            </a>
+            <Link
+              href="/store"
+              className={cn(
+                'px-4 py-3 rounded-xl text-sm font-medium transition-colors',
+                pathname?.startsWith('/store')
+                  ? 'text-brand-400 bg-brand-500/10'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-surface-700'
+              )}
+            >
+              Store (Product Info)
             </Link>
             {NAV_LINKS.map(link => (
               <Link

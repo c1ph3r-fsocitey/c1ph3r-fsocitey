@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, Package, Truck, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { Package, Truck, ExternalLink, AlertTriangle } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
-import AddToCartButton from '@/components/store/AddToCartButton'
+import BuyOnTindieButton from '@/components/store/BuyOnTindieButton'
 import { formatPrice } from '@/lib/utils/format'
 import { createClient } from '@/lib/supabase/server'
 import type { Product } from '@/types'
@@ -118,16 +118,21 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
             <p className="text-slate-400 leading-relaxed mb-8">{p.description}</p>
 
-            {/* Add to Cart */}
+            {/* Buy on Tindie */}
             <div className="flex gap-3 mb-8">
-              <AddToCartButton product={p} showLabel className="flex-1 py-3.5 text-base" />
+              <BuyOnTindieButton
+                tindieUrl={p.tindie_url}
+                showLabel
+                size="lg"
+                className="flex-1 justify-center"
+              />
             </div>
 
             {/* Trust signals */}
             <div className="grid grid-cols-3 gap-4 mb-8">
               {[
                 { icon: <Truck className="w-5 h-5" />, label: 'Free Shipping', sub: 'Worldwide' },
-                { icon: <Shield className="w-5 h-5" />, label: 'Secure Payment', sub: 'PayPal & Razorpay' },
+                { icon: <ExternalLink className="w-5 h-5" />, label: 'Sold on Tindie', sub: 'Secure checkout' },
                 { icon: <Package className="w-5 h-5" />, label: 'Ships from India', sub: 'Delhi, IN' },
               ].map(item => (
                 <div key={item.label} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-surface-800 border border-brand-subtle text-center">
