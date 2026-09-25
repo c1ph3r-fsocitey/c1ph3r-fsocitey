@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   ShoppingBag, Package, TrendingUp, AlertCircle,
-  ExternalLink, RefreshCw, CheckCircle, XCircle, Clock
+  ExternalLink, RefreshCw, CheckCircle, XCircle, Clock, Layers
 } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ interface TindieStats {
   refundedCount: number
   totalRevenue: number
   avgOrderValue: number
+  unitsSold: number
 }
 
 interface TopProduct {
@@ -52,7 +53,78 @@ interface TindieData {
   topProducts: TopProduct[]
   recentOrders: RecentOrder[]
   actionQueue: ActionItem[]
+  meta: { totalAllTime: number; filtered: number; from: string | null; to: string | null }
 }
+
+// ─── Date presets ─────────────────────────────────────────────────────────────
+
+type PresetKey = 'all' | '7d' | '30d' | '90d' | 'ytd' | 'lastyear' | 'custom'
+
+interface Preset {
+  key: PresetKey
+  label: string
+  getRange: () => { from: string | null; to: string | null }
+}
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+const PRESETS: Preset[] = [
+  {
+    key: 'all',
+    label: 'All Time',
+    getRange: () => ({ from: null, to: null }),
+  },
+  {
+    key: '7d',
+    label: 'Last 7 Days',
+    getRange: () => {
+      const to   = new Date()
+      const from = new Date(); from.setDate(from.getDate() - 6)
+      return { from: isoDate(from), to: isoDate(to) }
+    },
+  },
+  {
+    key: '30d',
+    label: 'Last 30 Days',
+    getRange: () => {
+      const to   = new Date()
+      const from = new Date(); from.setDate(from.getDate() - 29)
+      return { from: isoDate(from), to: isoDate(to) }
+    },
+  },
+  {
+    key: '90d',
+    label: 'Last 90 Days',
+    getRange: () => {
+      const to   = new Date()
+      const from = new Date(); from.setDate(from.getDate() - 89)
+      return { from: isoDate(from), to: isoDate(to) }
+    },
+  },
+  {
+    key: 'ytd',
+    label: 'This Year',
+    getRange: () => {
+      const year = new Date().getFullYear()
+      return { from: `${year}-01-01`, to: isoDate(new Date()) }
+    },
+  },
+  {
+    key: 'lastyear',
+    label: 'Last Year',
+    getRange: () => {
+      const year = new Date().getFullYear() - 1
+      return { from: `${year}-01-01`, to: `${year}-12-31` }
+    },
+  },
+  {
+    key: 'custom',
+    label: 'Custom',
+    getRange: () => ({ from: null, to: null }), // filled by custom inputs
+  },
+]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -62,18 +134,21 @@ function fmt(n: number) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric'
+    day: '2-digit', month: 'short', year: 'numeric',
   })
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminTindiePage() {
-  const [data, setData]       = useState<TindieData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
+  const [data, setData]             = useState<TindieData | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [preset, setPreset]         = useState<PresetKey>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo]     = useState(isoDate(new Date()))
 
-  const load = async () => {
+  const load = useCallback(async (from: string | null, to: string | null) => {
     setLoading(true)
     setError(null)
     try {
@@ -81,7 +156,12 @@ export default function AdminTindiePage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('Not authenticated')
 
-      const res = await fetch('/api/tindie', {
+      const params = new URLSearchParams()
+      if (from) params.set('from', from)
+      if (to)   params.set('to',   to)
+      const qs = params.toString() ? '?' + params.toString() : ''
+
+      const res = await fetch(`/api/tindie${qs}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const json = await res.json()
@@ -92,22 +172,36 @@ export default function AdminTindiePage() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // Initial load — all time
+  useEffect(() => {
+    const { from, to } = PRESETS[0].getRange()
+    load(from, to)
+  }, [load])
+
+  const applyPreset = (key: PresetKey) => {
+    setPreset(key)
+    if (key === 'custom') return // wait for manual apply
+    const p = PRESETS.find(p => p.key === key)!
+    const { from, to } = p.getRange()
+    load(from, to)
   }
 
-  useEffect(() => { load() }, [])
+  const applyCustom = () => {
+    load(customFrom || null, customTo || null)
+  }
 
   // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Tindie Store</h1>
-            <p className="text-slate-500 text-sm mt-1">Fetching live data from Tindie…</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Tindie Store</h1>
+          <p className="text-slate-500 text-sm mt-1">Fetching live data from Tindie…</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="glow-card p-5 animate-pulse">
               <div className="h-4 bg-surface-600 rounded w-2/3 mb-3" />
               <div className="h-7 bg-surface-600 rounded w-1/2" />
@@ -126,16 +220,9 @@ export default function AdminTindiePage() {
         <div className="glow-card p-8 text-center">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
           <p className="text-white font-medium mb-1">Could not load Tindie data</p>
-          <p className="text-slate-500 text-sm mb-2">{error}</p>
-          {error.includes('not configured') && (
-            <p className="text-slate-600 text-xs max-w-md mx-auto mb-5">
-              Add <code className="bg-surface-700 px-1 rounded">TINDIE_USERNAME</code> and{' '}
-              <code className="bg-surface-700 px-1 rounded">TINDIE_API_KEY</code> to your Vercel
-              environment variables, then redeploy.
-            </p>
-          )}
+          <p className="text-slate-500 text-sm mb-5">{error}</p>
           <button
-            onClick={load}
+            onClick={() => { const p = PRESETS.find(p => p.key === preset)!; const { from, to } = p.getRange(); load(from, to) }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 text-white text-sm font-medium hover:bg-brand-400 transition-colors"
           >
             <RefreshCw className="w-4 h-4" /> Retry
@@ -146,23 +233,36 @@ export default function AdminTindiePage() {
   }
 
   if (!data) return null
-  const { stats, topProducts, recentOrders, actionQueue } = data
+  const { stats, topProducts, recentOrders, actionQueue, meta } = data
+
+  // Period label for display
+  const activePreset = PRESETS.find(p => p.key === preset)!
+  const periodLabel  = preset === 'custom'
+    ? `${customFrom || '?'} → ${customTo || '?'}`
+    : activePreset.label
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Tindie Store</h1>
-          <p className="text-slate-500 text-sm mt-1">Live data from your Tindie seller account</p>
+          <p className="text-slate-500 text-sm mt-1">
+            {meta.from
+              ? `${meta.filtered} orders · ${periodLabel}`
+              : `${meta.totalAllTime} orders · All Time`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={load}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-400 hover:text-white border border-brand-subtle hover:border-brand-500/40 text-sm transition-all"
+            onClick={() => { const p = PRESETS.find(p => p.key === preset)!; const { from, to } = p.getRange(); load(from, to) }}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-400 hover:text-white border border-brand-subtle hover:border-brand-500/40 text-sm transition-all disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Loading…' : 'Refresh'}
           </button>
           <a
             href="https://www.tindie.com/dashboard/"
@@ -175,25 +275,84 @@ export default function AdminTindiePage() {
         </div>
       </div>
 
+      {/* Date Filter Bar */}
+      <div className="glow-card p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {PRESETS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => applyPreset(p.key)}
+              disabled={loading}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50 ${
+                preset === p.key
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-surface-700 text-slate-400 hover:text-slate-200 border border-brand-subtle hover:border-brand-500/30'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+
+          {/* Custom date inputs */}
+          {preset === 'custom' && (
+            <div className="flex items-center gap-2 ml-2 flex-wrap">
+              <span className="text-slate-500 text-sm">From</span>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-sm bg-surface-700 border border-brand-subtle text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              />
+              <span className="text-slate-500 text-sm">to</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-sm bg-surface-700 border border-brand-subtle text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              />
+              <button
+                onClick={applyCustom}
+                disabled={loading}
+                className="px-3 py-1.5 rounded-lg text-sm bg-brand-500 text-white font-medium hover:bg-brand-400 transition-colors disabled:opacity-50"
+              >
+                Apply
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         {[
-          { label: 'Total Orders',    value: stats.totalOrders,            icon: <ShoppingBag className="w-4 h-4" />,  color: 'text-brand-400' },
-          { label: 'Revenue',         value: fmt(stats.totalRevenue),      icon: <TrendingUp className="w-4 h-4" />,   color: 'text-green-400' },
-          { label: 'Avg Order',       value: fmt(stats.avgOrderValue),     icon: <TrendingUp className="w-4 h-4" />,   color: 'text-cyan-400'  },
-          { label: 'Shipped',         value: stats.shippedCount,           icon: <Package className="w-4 h-4" />,      color: 'text-slate-400' },
-          { label: 'Needs Shipping',  value: stats.unshippedCount,         icon: <Clock className="w-4 h-4" />,        color: stats.unshippedCount > 0 ? 'text-amber-400' : 'text-slate-500' },
-          { label: 'Refunded',        value: stats.refundedCount,          icon: <XCircle className="w-4 h-4" />,      color: 'text-red-400'   },
+          { label: 'Orders',          value: stats.totalOrders,            icon: <ShoppingBag className="w-4 h-4" />, color: 'text-brand-400' },
+          { label: 'Revenue',         value: fmt(stats.totalRevenue),      icon: <TrendingUp className="w-4 h-4" />,  color: 'text-green-400' },
+          { label: 'Avg Order',       value: fmt(stats.avgOrderValue),     icon: <TrendingUp className="w-4 h-4" />,  color: 'text-cyan-400'  },
+          { label: 'Units Sold',      value: stats.unitsSold,              icon: <Layers className="w-4 h-4" />,      color: 'text-purple-400' },
+          { label: 'Shipped',         value: stats.shippedCount,           icon: <Package className="w-4 h-4" />,     color: 'text-slate-400' },
+          { label: 'Needs Shipping',  value: stats.unshippedCount,         icon: <Clock className="w-4 h-4" />,       color: stats.unshippedCount > 0 ? 'text-amber-400' : 'text-slate-500' },
+          { label: 'Refunded',        value: stats.refundedCount,          icon: <XCircle className="w-4 h-4" />,     color: 'text-red-400'   },
         ].map(card => (
-          <div key={card.label} className="glow-card p-5">
-            <div className={`flex items-center gap-1.5 mb-2 ${card.color}`}>
+          <div key={card.label} className={`glow-card p-4 ${loading ? 'opacity-60' : ''} transition-opacity`}>
+            <div className={`flex items-center gap-1.5 mb-1.5 ${card.color}`}>
               {card.icon}
               <span className="text-xs font-medium text-slate-500">{card.label}</span>
             </div>
-            <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
+            <div className={`text-xl font-bold ${card.color}`}>{card.value}</div>
           </div>
         ))}
       </div>
+
+      {/* Period note when filtered */}
+      {meta.from && (
+        <p className="text-xs text-slate-600 -mt-4">
+          Stats above are for <span className="text-slate-400">{periodLabel}</span>.
+          "Needs Shipping" always shows all unshipped orders regardless of period.
+          {meta.totalAllTime !== meta.filtered && (
+            <> {meta.totalAllTime} total orders of all time.</>
+          )}
+        </p>
+      )}
 
       {/* Action Queue — unshipped orders */}
       {actionQueue.length > 0 && (
@@ -244,8 +403,11 @@ export default function AdminTindiePage() {
 
         {/* Recent orders */}
         <div className="xl:col-span-3">
-          <h2 className="font-bold text-white mb-4">Recent Orders</h2>
-          <div className="glow-card overflow-hidden">
+          <h2 className="font-bold text-white mb-4">
+            Orders
+            {meta.from ? ` · ${periodLabel}` : ''}
+          </h2>
+          <div className={`glow-card overflow-hidden ${loading ? 'opacity-60' : ''} transition-opacity`}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-brand-subtle">
@@ -303,17 +465,22 @@ export default function AdminTindiePage() {
               </tbody>
             </table>
             {recentOrders.length === 0 && (
-              <div className="py-12 text-center text-slate-500 text-sm">No orders yet.</div>
+              <div className="py-12 text-center text-slate-500 text-sm">
+                No orders in this period.
+              </div>
             )}
           </div>
         </div>
 
         {/* Top products */}
         <div className="xl:col-span-2">
-          <h2 className="font-bold text-white mb-4">Top Products</h2>
-          <div className="glow-card p-5 space-y-4">
+          <h2 className="font-bold text-white mb-4">
+            Top Products
+            {meta.from ? ` · ${periodLabel}` : ''}
+          </h2>
+          <div className={`glow-card p-5 space-y-4 ${loading ? 'opacity-60' : ''} transition-opacity`}>
             {topProducts.length === 0 && (
-              <p className="text-slate-500 text-sm text-center py-6">No sales data yet.</p>
+              <p className="text-slate-500 text-sm text-center py-6">No sales in this period.</p>
             )}
             {topProducts.map((product, i) => {
               const maxUnits = topProducts[0]?.units || 1
@@ -332,7 +499,7 @@ export default function AdminTindiePage() {
                   </div>
                   <div className="h-1.5 rounded-full bg-surface-700 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-brand-500 transition-all"
+                      className="h-full rounded-full bg-brand-500 transition-all duration-500"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

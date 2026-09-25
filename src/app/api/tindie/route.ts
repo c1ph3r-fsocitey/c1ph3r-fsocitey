@@ -3,9 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 // ---------------------------------------------------------------------------
 // Tindie Orders API proxy
-// Keeps TINDIE_API_KEY and TINDIE_USERNAME server-side only.
-// Verifies the caller is a logged-in admin via Bearer token.
-// GET /api/tindie?limit=200
+// GET /api/tindie?from=2024-01-01&to=2024-12-31
+// Both params are optional ISO date strings (YYYY-MM-DD). Omit for all time.
 // ---------------------------------------------------------------------------
 
 const TINDIE_BASE = 'https://www.tindie.com/api/v1/order/'
@@ -61,7 +60,6 @@ async function fetchAllOrders(username: string, apiKey: string): Promise<TindieO
   const limit = 100
 
   while (true) {
-    // Tindie API uses query-param auth (Basic Auth not supported)
     const url = `${TINDIE_BASE}?format=json&username=${encodeURIComponent(username)}&api_key=${encodeURIComponent(apiKey)}&limit=${limit}&offset=${offset}`
     const res = await fetch(url, { cache: 'no-store' })
 
@@ -82,20 +80,79 @@ async function fetchAllOrders(username: string, apiKey: string): Promise<TindieO
   return allOrders
 }
 
+function computeStats(orders: TindieOrderRaw[]) {
+  const unshipped    = orders.filter(o => !o.shipped && !o.refunded)
+  const refunded     = orders.filter(o => o.refunded)
+  const shipped      = orders.filter(o => o.shipped && !o.refunded)
+  const paidOrders   = orders.filter(o => !o.refunded)
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + parseFloat(o.total_seller || '0'), 0)
+  const avgOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0
+
+  // Top products by units sold
+  const productMap: Record<string, { name: string; sku: string; units: number; revenue: number }> = {}
+  for (const order of paidOrders) {
+    for (const item of order.items) {
+      const key = item.sku || item.product
+      if (!productMap[key]) {
+        productMap[key] = { name: item.product, sku: item.sku, units: 0, revenue: 0 }
+      }
+      productMap[key].units   += item.quantity
+      productMap[key].revenue += parseFloat(item.price_total || '0')
+    }
+  }
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.units - a.units)
+    .slice(0, 10)
+
+  // Recent 20 orders for the table
+  const recentOrders = orders.slice(0, 20).map(o => ({
+    number:       o.number,
+    date:         o.date,
+    shipped:      o.shipped,
+    refunded:     o.refunded,
+    customer:     o.shipping_name,
+    country:      o.shipping_country,
+    items:        o.items.map(i => `${i.quantity}× ${i.product}`).join(', '),
+    total_seller: parseFloat(o.total_seller || '0'),
+    tracking_url: o.tracking_url || null,
+  }))
+
+  // Unshipped action queue — always from ALL orders regardless of date filter
+  const actionQueue = unshipped.map(o => ({
+    number:       o.number,
+    date:         o.date,
+    customer:     o.shipping_name,
+    email:        o.email,
+    address:      [o.shipping_name, o.shipping_city, o.shipping_state, o.shipping_postcode, o.shipping_country].filter(Boolean).join(', '),
+    items:        o.items.map(i => `${i.quantity}× ${i.product}`).join(', '),
+    total_seller: parseFloat(o.total_seller || '0'),
+  }))
+
+  return {
+    stats: {
+      totalOrders:    orders.length,
+      shippedCount:   shipped.length,
+      unshippedCount: unshipped.length,
+      refundedCount:  refunded.length,
+      totalRevenue:   Math.round(totalRevenue * 100) / 100,
+      avgOrderValue:  Math.round(avgOrderValue * 100) / 100,
+      unitsSold:      paidOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0),
+    },
+    topProducts,
+    recentOrders,
+    actionQueue,
+  }
+}
+
 export async function GET(req: NextRequest) {
   // Auth: verify Bearer token
   const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim()
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const service = createServiceClient()
   const { data: { user } } = await service.auth.getUser(token)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Check env vars
   const username = process.env.TINDIE_USERNAME
   const apiKey   = process.env.TINDIE_API_KEY
   if (!username || !apiKey) {
@@ -105,72 +162,52 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  // Parse optional date range from query params
+  const { searchParams } = new URL(req.url)
+  const fromParam = searchParams.get('from') // e.g. "2024-01-01"
+  const toParam   = searchParams.get('to')   // e.g. "2024-12-31"
+  const fromDate  = fromParam ? new Date(fromParam + 'T00:00:00Z') : null
+  const toDate    = toParam   ? new Date(toParam   + 'T23:59:59Z') : null
+
   try {
-    const orders = await fetchAllOrders(username, apiKey)
+    const allOrders = await fetchAllOrders(username, apiKey)
 
-    // Compute derived analytics server-side
-    const totalOrders    = orders.length
-    const unshipped      = orders.filter(o => !o.shipped && !o.refunded)
-    const refunded       = orders.filter(o => o.refunded)
-    const shipped        = orders.filter(o => o.shipped && !o.refunded)
-    const totalRevenue   = orders
-      .filter(o => !o.refunded)
-      .reduce((sum, o) => sum + parseFloat(o.total_seller || '0'), 0)
-    const avgOrderValue  = totalOrders > 0 ? totalRevenue / (totalOrders - refunded.length) : 0
+    // Apply date filter if provided
+    const filtered = (fromDate || toDate)
+      ? allOrders.filter(o => {
+          const d = new Date(o.date)
+          if (fromDate && d < fromDate) return false
+          if (toDate   && d > toDate)   return false
+          return true
+        })
+      : allOrders
 
-    // Top products by units sold
-    const productMap: Record<string, { name: string; sku: string; units: number; revenue: number }> = {}
-    for (const order of orders) {
-      if (order.refunded) continue
-      for (const item of order.items) {
-        const key = item.sku || item.product
-        if (!productMap[key]) {
-          productMap[key] = { name: item.product, sku: item.sku, units: 0, revenue: 0 }
-        }
-        productMap[key].units   += item.quantity
-        productMap[key].revenue += parseFloat(item.price_total || '0')
-      }
+    // Unshipped action queue always shows ALL unshipped regardless of date
+    const result = computeStats(filtered)
+
+    // If a date filter is active, override unshipped/actionQueue with all-time data
+    if (fromDate || toDate) {
+      const allUnshipped = allOrders.filter(o => !o.shipped && !o.refunded)
+      result.stats.unshippedCount = allUnshipped.length
+      result.actionQueue = allUnshipped.map(o => ({
+        number:       o.number,
+        date:         o.date,
+        customer:     o.shipping_name,
+        email:        o.email,
+        address:      [o.shipping_name, o.shipping_city, o.shipping_state, o.shipping_postcode, o.shipping_country].filter(Boolean).join(', '),
+        items:        o.items.map(i => `${i.quantity}× ${i.product}`).join(', '),
+        total_seller: parseFloat(o.total_seller || '0'),
+      }))
     }
-    const topProducts = Object.values(productMap)
-      .sort((a, b) => b.units - a.units)
-      .slice(0, 10)
-
-    // Recent 20 orders for the table
-    const recentOrders = orders.slice(0, 20).map(o => ({
-      number:       o.number,
-      date:         o.date,
-      shipped:      o.shipped,
-      refunded:     o.refunded,
-      customer:     o.shipping_name,
-      country:      o.shipping_country,
-      items:        o.items.map(i => `${i.quantity}× ${i.product}`).join(', '),
-      total_seller: parseFloat(o.total_seller || '0'),
-      tracking_url: o.tracking_url || null,
-    }))
-
-    // Unshipped action queue (full detail)
-    const actionQueue = unshipped.map(o => ({
-      number:       o.number,
-      date:         o.date,
-      customer:     o.shipping_name,
-      email:        o.email,
-      address:      [o.shipping_name, o.shipping_city, o.shipping_state, o.shipping_postcode, o.shipping_country].filter(Boolean).join(', '),
-      items:        o.items.map(i => `${i.quantity}× ${i.product}`).join(', '),
-      total_seller: parseFloat(o.total_seller || '0'),
-    }))
 
     return NextResponse.json({
-      stats: {
-        totalOrders,
-        shippedCount:   shipped.length,
-        unshippedCount: unshipped.length,
-        refundedCount:  refunded.length,
-        totalRevenue:   Math.round(totalRevenue * 100) / 100,
-        avgOrderValue:  Math.round(avgOrderValue * 100) / 100,
+      ...result,
+      meta: {
+        totalAllTime: allOrders.length,
+        filtered:     filtered.length,
+        from:         fromParam,
+        to:           toParam,
       },
-      topProducts,
-      recentOrders,
-      actionQueue,
     })
   } catch (err: any) {
     console.error('Tindie API fetch error:', err)
