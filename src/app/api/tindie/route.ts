@@ -62,10 +62,15 @@ async function fetchAllOrders(username: string, apiKey: string): Promise<TindieO
 
   while (true) {
     const url = `${TINDIE_BASE}?format=json&username=${encodeURIComponent(username)}&api_key=${encodeURIComponent(apiKey)}&limit=${limit}&offset=${offset}`
-    const res = await fetch(url, { next: { revalidate: 300 } }) // cache 5 min
+    console.log('[tindie] fetching:', TINDIE_BASE, '| username:', username, '| key ends:', apiKey.slice(-6))
+    const res = await fetch(url, { cache: 'no-store' }) // no-store so we always get fresh data
 
     if (!res.ok) {
-      throw new Error(`Tindie API error: ${res.status} ${res.statusText}`)
+      const body = await res.text().catch(() => '')
+      console.error('[tindie] error response body:', body)
+      throw new Error(
+        `Tindie API error: ${res.status} ${res.statusText}${body ? ' — ' + body.slice(0, 300) : ''}`
+      )
     }
 
     const data: TindieResponse = await res.json()
